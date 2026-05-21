@@ -16,13 +16,11 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🛩️ Military Aircraft Sorter")
+st.title("Military Aircraft")
 
 st.write(
     """
-    Lade mehrere Bilder hoch.
-    Die KI erkennt Flugzeuge automatisch
-    und sortiert die Bilder nach Kategorien.
+    Foto hochladen
     """
 )
 
