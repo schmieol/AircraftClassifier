@@ -100,11 +100,11 @@ if uploaded_files:
     # Kategorien anzeigen
     # ==========================================
 
-    st.header("📂 Sortierte Kategorien")
+    st.header("Sortierte Kategorien")
 
     for category, images in categorized_images.items():
 
-        st.subheader(f"📁 {category} ({len(images)} Bilder)")
+        st.subheader(f"{category} ({len(images)} Bilder)")
 
         cols = st.columns(4)
 
