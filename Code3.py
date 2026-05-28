@@ -20,7 +20,6 @@ st.title("Military Aircraft")
 
 st.write(
     """
-    Foto hochladen
     """
 )
 
