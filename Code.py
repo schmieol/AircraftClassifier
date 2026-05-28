@@ -1,86 +1,152 @@
 import streamlit as st
-import numpy as np
-from PIL import Image
 from ultralytics import YOLO
-import cv2
+from PIL import Image
 import tempfile
+import zipfile
+import io
 import os
+from collections import defaultdict
 
-# 1. Konfigurasi Halaman Web
-st.set_page_config(page_title="Military Aircraft Detection", layout="wide")
-st.title("🛩️ Military Aircraft Object Detection")
-st.write("Unggah gambar atau video pesawat militer. Model AI akan memproses dan menampilkan bounding box secara langsung.")
+# ==========================================
+# Streamlit Config
+# ==========================================
 
-# 2. Memuat Model
+st.set_page_config(
+    page_title="Military Aircraft Sorter",
+    layout="wide"
+)
+
+st.title("Military Aircraft")
+
+st.write(
+    """
+    Foto hochladen
+    """
+)
+
+# ==========================================
+# Load Model
+# ==========================================
+
 @st.cache_resource
 def load_model():
-    model = YOLO('best.pt') 
-    return model
+    return YOLO("best.pt")
 
-try:
-    model = load_model()
-    st.success("Model berhasil dimuat!")
-except Exception as e:
-    st.error(f"Gagal memuat model: {e}")
+model = load_model()
 
-# 3. Antarmuka Unggah File (Sekarang mendukung mp4 dan avi)
-uploaded_file = st.file_uploader("Pilih gambar atau video...", type=["jpg", "jpeg", "png", "mp4", "avi"])
+# ==========================================
+# Upload Multiple Images
+# ==========================================
 
-if uploaded_file is not None:
-    # Mendapatkan ekstensi file untuk menentukan jenis pemrosesan
-    file_extension = uploaded_file.name.split('.')[-1].lower()
-    
-    # ==========================================
-    # LOGIKA PEMROSESAN GAMBAR
-    # ==========================================
-    if file_extension in ['jpg', 'jpeg', 'png']:
+uploaded_files = st.file_uploader(
+    "Bilder hochladen",
+    type=["jpg", "jpeg", "png"],
+    accept_multiple_files=True
+)
+
+# ==========================================
+# Process Images
+# ==========================================
+
+if uploaded_files:
+
+    st.success(f"✅ {len(uploaded_files)} Bilder hochgeladen")
+
+    categorized_images = defaultdict(list)
+
+    progress = st.progress(0)
+
+    for idx, uploaded_file in enumerate(uploaded_files):
+
         image = Image.open(uploaded_file).convert("RGB")
-        st.write("Sedang memproses gambar...")
-        
-        results = model(image)
-        res_plotted = results[0].plot()
-        res_rgb = res_plotted[:, :, ::-1] # Konversi BGR ke RGB
 
-        col1, col2 = st.columns(2)
-        with col1:
-            st.image(image, caption="Gambar Asli", use_column_width=True)
-        with col2:
-            st.image(res_rgb, caption="Hasil Deteksi", use_column_width=True)
+        # YOLO Prediction
+        results = model.predict(image, conf=0.4)
+
+        result = results[0]
+
+        # ======================================
+        # Klassen erkennen
+        # ======================================
+
+        detected_classes = []
+
+        if result.boxes is not None:
+
+            for cls_id in result.boxes.cls.tolist():
+
+                class_name = model.names[int(cls_id)]
+
+                if class_name not in detected_classes:
+                    detected_classes.append(class_name)
+
+        # Falls nichts erkannt
+        if not detected_classes:
+            detected_classes = ["Unbekannt"]
+
+        # Bild in Kategorien speichern
+        for category in detected_classes:
+
+            categorized_images[category].append({
+                "filename": uploaded_file.name,
+                "image": image
+            })
+
+        progress.progress((idx + 1) / len(uploaded_files))
+
+    st.success("✅ Sortierung abgeschlossen!")
 
     # ==========================================
-    # LOGIKA PEMROSESAN VIDEO
+    # Kategorien anzeigen
     # ==========================================
-    elif file_extension in ['mp4', 'avi']:
-        st.write("Sedang memproses video secara real-time...")
-        
-        # Streamlit perlu menyimpan video sementara ke server untuk dibaca oleh OpenCV
-        tfile = tempfile.NamedTemporaryFile(delete=False) 
-        tfile.write(uploaded_file.read())
-        
-        # Buka video menggunakan OpenCV
-        vid_cap = cv2.VideoCapture(tfile.name)
-        
-        # Membuat area kosong di Streamlit untuk diisi frame video terus-menerus
-        stframe = st.empty()
-        
-        while vid_cap.isOpened():
-            success, frame = vid_cap.read()
-            if success:
-                # Prediksi frame dengan YOLOv8
-                results = model(frame)
-                
-                # Gambar Bounding Box
-                res_plotted = results[0].plot()
-                
-                # Konversi format warna untuk Streamlit
-                res_rgb = res_plotted[:, :, ::-1]
-                
-                # Timpa gambar sebelumnya dengan gambar baru (menciptakan efek video live)
-                stframe.image(res_rgb, channels="RGB", use_column_width=True)
-            else:
-                vid_cap.release()
-                break
-                
-        # Menghapus file sementara setelah selesai
-        os.remove(tfile.name)
-        st.success("Pemrosesan video selesai!")
+
+    st.header("📂 Sortierte Kategorien")
+
+    for category, images in categorized_images.items():
+
+        st.subheader(f"📁 {category} ({len(images)} Bilder)")
+
+        cols = st.columns(4)
+
+        # ZIP-Datei vorbereiten
+        zip_buffer = io.BytesIO()
+
+        with zipfile.ZipFile(
+            zip_buffer,
+            "w",
+            zipfile.ZIP_DEFLATED
+        ) as zip_file:
+
+            for i, item in enumerate(images):
+
+                image = item["image"]
+                filename = item["filename"]
+
+                # Bild anzeigen
+                with cols[i % 4]:
+                    st.image(
+                        image,
+                        caption=filename,
+                        use_container_width=True
+                    )
+
+                # Bild temporär speichern
+                temp_buffer = io.BytesIO()
+                image.save(temp_buffer, format="PNG")
+
+                zip_file.writestr(
+                    filename,
+                    temp_buffer.getvalue()
+                )
+
+        zip_buffer.seek(0)
+
+        # Download Button für Kategorie
+        st.download_button(
+            label=f"⬇️ Kategorie '{category}' herunterladen",
+            data=zip_buffer,
+            file_name=f"{category}.zip",
+            mime="application/zip"
+        )
+
+        st.divider()
