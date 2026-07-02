@@ -18,7 +18,7 @@ st.set_page_config(
 st.title("Military Aircraft Object Detection")
 
 st.write(
-    "Upload images or videos of military aircraft. "
+    "Upload image of military aircraft. "
     
 )
 
