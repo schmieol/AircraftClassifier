@@ -15,7 +15,7 @@ st.set_page_config(
     layout="wide"
 )
 
-st.title("🛩️ Military Aircraft Object Detection")
+st.title("Military Aircraft Object Detection")
 
 st.write(
     "Upload images or videos of military aircraft. "
@@ -34,7 +34,7 @@ def load_model():
 
 try:
     model = load_model()
-    st.success("✅ Model loaded successfully!")
+    st.success("")
 
 except Exception as e:
     st.error(f"❌ Failed to load model: {e}")
