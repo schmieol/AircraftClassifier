@@ -19,8 +19,7 @@ st.title("Military Aircraft Object Detection")
 
 st.write(
     "Upload images or videos of military aircraft. "
-    "The AI model will automatically detect aircraft "
-    "and display bounding boxes in real time."
+    
 )
 
 # ==========================================
