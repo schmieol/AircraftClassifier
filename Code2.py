@@ -34,7 +34,7 @@ def load_model():
 
 try:
     model = load_model()
-    st.success("")
+    
 
 except Exception as e:
     st.error(f"❌ Failed to load model: {e}")
